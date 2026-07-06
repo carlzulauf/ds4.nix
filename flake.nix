@@ -207,29 +207,6 @@
             security.pam.loginLimits = [
               { domain = "@wheel"; type = "-"; item = "memlock"; value = "unlimited"; }
             ];
-
-            # DS4 expects GGUF model files in a gguf/ subdirectory relative to the
-            # binary. Provide a note in the system build (visible via nix info).
-            warnings = lib.optional (cfg.package != null) ''
-              DS4 Model Information:
-              ---------------------
-
-              DS4 expects GGUF model files in a `gguf/` subdirectory relative to the ds4 binary.
-              Since this is in the nix store, it is recommended to store your model elsewhere.
-
-              Make a reasonable place for your model, download the correct GGUF file to the
-              location, and specify the path to the model when starting DS4.
-
-                mkdir -p ~/.local/ds4/gguf
-                cd ~/.local/ds4/gguf
-                wget -O DeepSeek-V4-Flash-IQ2XXS-w2Q2K-AProjQ8-SExpQ8-OutQ8-chat-v2-imatrix.gguf \
-                  https://huggingface.co/antirez/deepseek-v4-gguf/resolve/main/DeepSeek-V4-Flash-IQ2XXS-w2Q2K-AProjQ8-SExpQ8-OutQ8-chat-v2-imatrix.gguf?download=true
-                ds4-server -m ~/.local/ds4/gguf/DeepSeek-V4-Flash-IQ2XXS-w2Q2K-AProjQ8-SExpQ8-OutQ8-chat-v2-imatrix.gguf \
-                  --ctx 262144 --kv-disk-dir ~/.local/ds4/server-kv --kv-disk-space-mb 8192 --host 0.0.0.0
-
-              Recommended model for Strix Halo (128GB RAM):
-                DeepSeek-V4-Flash-IQ2XXS-w2Q2K-AProjQ8-SExpQ8-OutQ8-chat-v2-imatrix.gguf
-            '';
           };
         };
     in
