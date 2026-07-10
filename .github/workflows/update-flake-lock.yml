@@ -1,0 +1,32 @@
+# Scheduled flake.lock updates — current best practice for Nix flake projects.
+# Uses the DeterminateSystems/update-flake-lock action, which runs
+# `nix flake update --commit-lock-file` and opens a PR.
+#
+# See: https://github.com/DeterminateSystems/update-flake-lock
+
+name: "Update Nix flake inputs"
+
+on:
+  workflow_dispatch:       # allow manual trigger
+  schedule:
+    - cron: "0 0 * * 1,4"  # run twice a week (Monday & Thursday)
+
+jobs:
+  nix-flake-update:
+    permissions:
+      contents: write
+      id-token: write
+      issues: write
+      pull-requests: write
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: DeterminateSystems/determinate-nix-action@v3
+
+      - uses: DeterminateSystems/update-flake-lock@main
+        with:
+          pr-title: "chore: update Nix flake inputs"
+          pr-labels: |
+            dependencies
+            automated
