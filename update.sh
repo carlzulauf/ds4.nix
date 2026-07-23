@@ -53,11 +53,21 @@ fi
 echo ""
 echo "=== Step 3: Prefetch new source hash ==="
 
-# nix-prefetch-github outputs JSON with rev, sha256, etc.
+# nix-prefetch-github outputs JSON with rev, hash (SRI), etc.
 PREFETCH_JSON=$(nix-prefetch-github --rev "$LATEST_SHA" "$OWNER" "$REPO")
 
-NEW_HASH=$(echo "$PREFETCH_JSON" | jq -r '.sha256')
+# Modern nix-prefetch-github emits the SRI hash under `.hash` (there is no
+# `.sha256` key), so `jq -r '.sha256'` would silently yield the string "null"
+# and write `hash = "null"` into flake.nix, breaking evaluation.
+NEW_HASH=$(echo "$PREFETCH_JSON" | jq -r '.hash')
 echo "New source hash:      $NEW_HASH"
+
+if [[ -z "$NEW_HASH" || "$NEW_HASH" == "null" || "$NEW_HASH" != sha256-* ]]; then
+  echo "ERROR: prefetch returned an invalid hash: '$NEW_HASH'" >&2
+  echo "Prefetch output was:" >&2
+  echo "$PREFETCH_JSON" >&2
+  exit 1
+fi
 
 # Extract the current hash from flake.nix (SRI format with sha256- prefix)
 CURRENT_HASH=$(sed -n 's/.*hash = "\(.*\)".*/\1/p' flake.nix)

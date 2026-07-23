@@ -45,7 +45,7 @@
             owner = "antirez";
             repo = "ds4";
             rev = "efdadd41e20134af4f3381e1ed90e96fe4faef6f";
-            hash = "null";
+            hash = "sha256-GcuZrjETwo/oN+itgWuSVPhRmSYPo4gIFHzuoDKkkFk=";
           };
 
           # hipcc is the compiler/linker for the ROCm object + the final link.
