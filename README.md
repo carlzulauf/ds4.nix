@@ -132,19 +132,22 @@ Instead, download the correct model to a reasoanble location and specify the
 model path when starting `ds4`/`ds4-server`/etc.
 
 ```bash
-mkdir -p ~/.local/ds4/gguf
-cd ~/.local/ds4/gguf
-wget -O DeepSeek-V4-Flash-IQ2XXS-w2Q2K-AProjQ8-SExpQ8-OutQ8-chat-v2-imatrix.gguf \
-  https://huggingface.co/antirez/deepseek-v4-gguf/resolve/main/DeepSeek-V4-Flash-IQ2XXS-w2Q2K-AProjQ8-SExpQ8-OutQ8-chat-v2-imatrix.gguf?download=true
-ds4-server -m ~/.local/ds4/gguf/DeepSeek-V4-Flash-IQ2XXS-w2Q2K-AProjQ8-SExpQ8-OutQ8-chat-v2-imatrix.gguf \
+DS4_GGUF_DIR=~/.local/ds4/gguf ds4-download-model ds4f-q2
+ds4-server -m ~/.local/ds4/gguf/DeepSeek-V4-Flash-IQ2XXS-w2Q2K-AProjQ8-SExpQ8-OutQ8-chat-v2-imatrix-0731.gguf \
   --ctx 262144 --kv-disk-dir ~/.local/ds4/server-kv --kv-disk-space-mb 8192 --host 0.0.0.0
 ```
 
 **Recommended model for Strix Halo (128GB RAM):**
 
 ```
-DeepSeek-V4-Flash-IQ2XXS-w2Q2K-AProjQ8-SExpQ8-OutQ8-chat-v2-imatrix.gguf
+DeepSeek-V4-Flash-IQ2XXS-w2Q2K-AProjQ8-SExpQ8-OutQ8-chat-v2-imatrix-0731.gguf
 ```
+
+Model filenames are checkpoint-specific (upstream tags them by release, e.g.
+`-0731`); always use the exact filename `ds4-download-model` fetches rather
+than a hardcoded one, since older checkpoint files should not be mixed with a
+newer ds4 build. Run `ds4-download-model` with no arguments to see all
+available targets (`ds4f-q2`, `ds4f-q2-q4`, `ds4f-q4`, `ds4f-mxfp4`, etc).
 
 ## Running ds4
 
@@ -160,7 +163,7 @@ Actual realistic command to run the API server, serving on all network
 interfaces with 256k context. Confirmed to work well on Framework Desktop.
 
 ```bash
-ds4-server -m ~/.local/ds4/gguf/DeepSeek-V4-Flash-IQ2XXS-w2Q2K-AProjQ8-SExpQ8-OutQ8-chat-v2-imatrix.gguf --ctx 262144 --kv-disk-dir ~/.local/ds4/server-kv --kv-disk-space-mb 8192 --host 0.0.0.0
+ds4-server -m ~/.local/ds4/gguf/DeepSeek-V4-Flash-IQ2XXS-w2Q2K-AProjQ8-SExpQ8-OutQ8-chat-v2-imatrix-0731.gguf --ctx 262144 --kv-disk-dir ~/.local/ds4/server-kv --kv-disk-space-mb 8192 --host 0.0.0.0
 ```
 
 ## How it works (the Nix side)
