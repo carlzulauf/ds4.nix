@@ -39,13 +39,13 @@
         in
         pkgs.stdenv.mkDerivation (finalAttrs: {
           pname = "ds4";
-          version = "0-unstable-2026-08-07";
+          version = "0-unstable-2026-08-28";
 
           src = pkgs.fetchFromGitHub {
             owner = "antirez";
             repo = "ds4";
-            rev = "b0309611041655f4e45671cfd9c9886aff161406";
-            hash = "sha256-yBPQqX8oI9fElGiXfz72iWwIS8ZQpK4Bl9TWLZSa6JU=";
+            rev = "8db89fe083ae4d17c9a2428ccd29803d3ae8f577";
+            hash = "sha256-n0r4zxPKa1mKEHEMy0UjR871OPmbBZ/BBOva4WFmaWc=";
           };
 
           # hipcc is the compiler/linker for the ROCm object + the final link.

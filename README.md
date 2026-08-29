@@ -30,10 +30,10 @@ allowed (0.5GB on Framework Desktop).
 
 ## Why a flake and not nixpkgs?
 
-This is a cutting-edge, rapidly evolving project pinned to a specific commit
-(80ebbc3). It depends on ROCm packages from `nixpkgs-master` which are
-themselves in flux. A flake gives us the flexibility to track upstream changes
-and iterate quickly without polluting the stable nixpkgs tree.
+This is a cutting-edge, rapidly evolving project pinned to a specific upstream
+commit. It depends on ROCm packages from `nixpkgs-master` which are themselves
+in flux. A flake gives us the flexibility to track upstream changes and iterate
+quickly without polluting the stable nixpkgs tree.
 
 ## NixOS Integration
 
@@ -111,7 +111,7 @@ Set any parameter to `null` to omit it.
 
 ```bash
 nix build github:carlzulauf/ds4.nix
-# Result: /nix/store/...-ds4-0-unstable-2026-06-17/bin/ds4*
+# Result: /nix/store/...-ds4-0-unstable-<date>/bin/ds4*
 ```
 
 Or for a different GPU target:

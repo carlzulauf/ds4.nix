@@ -19,6 +19,18 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 cd "$SCRIPT_DIR"
 
+# Build the flake and refresh the ./result symlink, so `result` always points at
+# what the current flake.nix/flake.lock actually produce. Called on every path
+# through this script -- including the "already up to date" one, where step 1
+# may still have moved nixpkgs. `set -e` means a broken build aborts here,
+# before anything gets committed.
+build_and_link() {
+  echo ""
+  echo "=== Build and verify (refreshes ./result) ==="
+  nix build .#ds4 --out-link result
+  echo "Built: $(readlink result)"
+}
+
 echo "=== Step 1: Update flake.lock (nixpkgs, flake-utils) ==="
 nix flake update --commit-lock-file 2>&1
 
@@ -28,15 +40,31 @@ echo "=== Step 2: Determine latest ds4 upstream commit ==="
 OWNER="antirez"
 REPO="ds4"
 
-# Fetch the latest commit SHA of the default branch from GitHub API
-LATEST_SHA=$(curl -s "https://api.github.com/repos/$OWNER/$REPO/commits/main" \
-  | jq -r '.sha')
+# Fetch the latest commit of the default branch from GitHub API. One request
+# gives us both the SHA and its date; we need the date for the version string.
+COMMIT_JSON=$(curl -s "https://api.github.com/repos/$OWNER/$REPO/commits/main")
+
+LATEST_SHA=$(echo "$COMMIT_JSON" | jq -r '.sha')
 
 if [[ -z "$LATEST_SHA" || "$LATEST_SHA" == "null" ]]; then
   echo "ERROR: Could not fetch latest commit SHA for $OWNER/$REPO" >&2
   exit 1
 fi
 echo "Latest upstream commit: $LATEST_SHA"
+
+# nixpkgs `0-unstable-<date>` versions take the date from the commit itself,
+# not from whenever the update happened to run, so that a given rev always
+# produces the same version string. Normalize to UTC: the API returns an
+# ISO-8601 timestamp that may carry a non-zero offset.
+LATEST_COMMIT_DATE_RAW=$(echo "$COMMIT_JSON" | jq -r '.commit.committer.date')
+
+if [[ -z "$LATEST_COMMIT_DATE_RAW" || "$LATEST_COMMIT_DATE_RAW" == "null" ]]; then
+  echo "ERROR: Could not read commit date for $LATEST_SHA" >&2
+  exit 1
+fi
+
+LATEST_COMMIT_DATE=$(date -u -d "$LATEST_COMMIT_DATE_RAW" +%Y-%m-%d)
+echo "Commit date (UTC):      $LATEST_COMMIT_DATE"
 
 # Read the current pinned rev from flake.nix
 CURRENT_REV=$(sed -n 's/.*rev = "\(.*\)".*/\1/p' flake.nix)
@@ -45,6 +73,7 @@ echo "Current pinned rev:   $CURRENT_REV"
 
 if [[ "$LATEST_SHA" == "$CURRENT_REV" ]]; then
   echo "ds4 source is already up to date — skipping hash refresh."
+  build_and_link
   echo ""
   echo "=== All done ==="
   exit 0
@@ -81,9 +110,10 @@ sed -i "s|rev = \"$CURRENT_REV\"|rev = \"$LATEST_SHA\"|" flake.nix
 # Replace the hash line (preserve the surrounding whitespace and structure)
 sed -i "s|hash = \"$CURRENT_HASH\"|hash = \"$NEW_HASH\"|" flake.nix
 
-# Update the version date string to today
-TODAY=$(date +%Y-%m-%d)
-sed -i "s|version = \"0-unstable-[0-9]\{4\}-[0-9]\{2\}-[0-9]\{2\}\"|version = \"0-unstable-$TODAY\"|" flake.nix
+# Update the version date string to the upstream commit date
+sed -i "s|version = \"0-unstable-[0-9]\{4\}-[0-9]\{2\}-[0-9]\{2\}\"|version = \"0-unstable-$LATEST_COMMIT_DATE\"|" flake.nix
+
+build_and_link
 
 echo ""
 echo "=== Step 5: Commit the update ==="
