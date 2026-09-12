@@ -25,7 +25,7 @@
 
           # ROCm/HIP components ds4's target compiles and links against.
           # hipcc is NOT cc-wrapped, so it ignores NIX_CFLAGS_COMPILE/NIX_LDFLAGS;
-          # we hand it -I/-L/-rpath for each store path explicitly (see ROCM_* below).
+          # we hand it -I/-L/-rpath for each store path explicitly (see buildPhase).
           # Header set taken from ds4_rocm.cu / rocm/*.cuh:
           #   hip/* -> clr, hipblas, hipblaslt (+hipblas-common, rocblas),
           #   hipcub (+rocprim), rocwmma.
@@ -36,34 +36,35 @@
             rocwmma
             rocm-core
           ];
+
+          # The only thing this flake genuinely has to add to upstream's flags:
+          # the split-store include/lib locations. Everything else comes from
+          # the Makefile itself at build time.
+          rocmIncludeFlags =
+            builtins.concatStringsSep " " (map (p: "-I${p}/include") rocmDeps);
+          rocmLibFlags =
+            builtins.concatStringsSep " " (map (p: "-L${p}/lib -Wl,-rpath,${p}/lib") rocmDeps);
         in
         pkgs.stdenv.mkDerivation (finalAttrs: {
           pname = "ds4";
-          version = "0-unstable-2026-08-28";
+          version = "0-unstable-2026-09-12";
 
           src = pkgs.fetchFromGitHub {
             owner = "antirez";
             repo = "ds4";
-            rev = "8db89fe083ae4d17c9a2428ccd29803d3ae8f577";
-            hash = "sha256-n0r4zxPKa1mKEHEMy0UjR871OPmbBZ/BBOva4WFmaWc=";
+            rev = "bd66c402070042bf0a79ad6ece8242de4c93680c";
+            hash = "sha256-F/MKv3/0Oj8DLa+q6jMtv0wFDgUvii+Xo2f1dPBDg6A=";
           };
 
           # hipcc is the compiler/linker for the ROCm object + the final link.
           nativeBuildInputs = [ rocmPkgs.hipcc ];
           buildInputs = rocmDeps;
 
-          # The Makefile assigns ROCM_ARCH/ROCM_CFLAGS/ROCM_LDLIBS with `?=`, so
-          # exported environment variables win. We keep upstream's flags verbatim
-          # and append the include/lib/rpath paths for the split Nix store layout.
+          # The Makefile assigns ROCM_ARCH/ROCM_CFLAGS/ROCM_LDLIBS with `?=`, so an
+          # exported value replaces upstream's wholesale. ROCM_ARCH is ours to set;
+          # the flag lists are not -- buildPhase reads those back from the Makefile
+          # rather than restating them here. See the note there.
           ROCM_ARCH = rocmTarget;
-          ROCM_CFLAGS =
-            "-O3 -ffast-math -g -fno-finite-math-only -pthread -D__HIP_PLATFORM_AMD__ "
-            + "-Wno-unused-command-line-argument --offload-arch=${rocmTarget} "
-            + builtins.concatStringsSep " " (map (p: "-I${p}/include") rocmDeps);
-          ROCM_LDLIBS =
-            "-lm -pthread "
-            + builtins.concatStringsSep " " (map (p: "-L${p}/lib -Wl,-rpath,${p}/lib") rocmDeps)
-            + " -lhipblas -lhipblaslt";
 
           enableParallelBuilding = true;
 
@@ -73,6 +74,32 @@
             export ROCM_PATH="${rocmPkgs.clr}"
             export HIP_PATH="${rocmPkgs.clr}"
             export HIP_DEVICE_LIB_PATH="${rocmPkgs.rocm-device-libs}/amdgcn/bitcode"
+
+            # Ask the Makefile for its own ROCm flag defaults instead of copying
+            # them into this flake. Upstream edits that list (it grew -lrocblas in
+            # 2026-09), and because these are `?=` an exported copy silently wins,
+            # so a stale copy here surfaces only as an undefined symbol at link.
+            # A throwaway makefile adds a print-<VAR> rule; values come back fully
+            # expanded, so --offload-arch=$(ROCM_ARCH) picks up the export above.
+            printf 'print-%%:\n\t@echo $($*)\n' > .nix-print-var.mk
+            upstreamCflags=$(make --no-print-directory -f Makefile -f .nix-print-var.mk print-ROCM_CFLAGS)
+            upstreamLdlibs=$(make --no-print-directory -f Makefile -f .nix-print-var.mk print-ROCM_LDLIBS)
+            rm -f .nix-print-var.mk
+
+            if [ -z "$upstreamCflags" ] || [ -z "$upstreamLdlibs" ]; then
+              echo "ERROR: could not read ROCM_CFLAGS/ROCM_LDLIBS from upstream Makefile." >&2
+              echo "       Upstream probably renamed or restructured them; update this flake." >&2
+              exit 1
+            fi
+
+            # Our -L/-rpath go first so they are searched for every -l upstream
+            # lists; -I order is immaterial.
+            export ROCM_CFLAGS="$upstreamCflags ${rocmIncludeFlags}"
+            export ROCM_LDLIBS="${rocmLibFlags} $upstreamLdlibs"
+
+            echo "ROCM_CFLAGS=$ROCM_CFLAGS"
+            echo "ROCM_LDLIBS=$ROCM_LDLIBS"
+
             make strix-halo -j"$NIX_BUILD_CORES"
             runHook postBuild
           '';
